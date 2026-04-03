@@ -39,5 +39,5 @@ public class Target : MonoBehaviour
         } while (Vector2.Distance(newPos, playerTransform.position) < minDistance || isOverlapping);
 
         transform.position = newPos;
-    }
+   }
 }
