@@ -47,6 +47,6 @@ public class TargetManager : MonoBehaviour
             t.GetComponent<Target>().Relocate();
             t.SetActive(true);
         }
-        Debug.Log("모든 타겟이 새로운 위치에 생성되었습니다!");
+        //Debug.Log("모든 타겟이 새로운 위치에 생성되었습니다!");
     }
 }

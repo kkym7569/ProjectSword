@@ -33,7 +33,7 @@ public class PlayerMain : MonoBehaviour
             {
                 isMoving = true;
                 attackStartPos = transform.position;
-                Debug.Log($"공격 이동 시작: {currentTarget.name}");
+                //Debug.Log($"공격 이동 시작: {currentTarget.name}");
 
                 if (moveCoroutine != null) StopCoroutine(moveCoroutine);
 
@@ -74,7 +74,7 @@ public class PlayerMain : MonoBehaviour
     private void ExecuteCollection(GameObject targetObject)
     {
         isMoving = false;
-        Debug.Log($"{targetObject.name} 중심 도착 및 수집 완료");
+        //Debug.Log($"{targetObject.name} 중심 도착 및 수집 완료");
 
         // [수정됨] 현재 TargetManager는 알아서 대상을 비활성화하므로 SetActive(false) 중복 호출 제거
         // [수정됨] TargetEaten() 호출 시 괄호 안의 인수를 제거했습니다.
