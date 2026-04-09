@@ -7,10 +7,10 @@ public class ChunkManager : MonoBehaviour
     [Header("타일맵 참조")]
     public Tilemap tilemap; // 화면에 그림을 그릴 도화지
 
-    [Header("타일 에셋 (미리 인스펙터에서 연결)")]
-    public TileBase waterTile;
-    public TileBase grassTile;
-    public TileBase lavaTile;
+    [Header("타일 에셋 (인스펙터에서 여러 개 연결)")]
+    public List<TileBase> waterTiles;
+    public List<TileBase> grassTiles;
+    public List<TileBase> lavaTiles;
 
     [Header("청크 설정")]
     public int chunkSize = 16; // 한 청크의 가로세로 타일 개수 (16x16)
@@ -101,9 +101,9 @@ public class ChunkManager : MonoBehaviour
 
                 switch (type)
                 {
-                    case TileType.Water: tileToSet = waterTile; break;
-                    case TileType.Grass: tileToSet = grassTile; break;
-                    case TileType.Lava: tileToSet = lavaTile; break;
+                    case TileType.Water: tileToSet = GetRandomTile(waterTiles, tileX, tileY); break;
+                    case TileType.Grass: tileToSet = GetRandomTile(grassTiles, tileX, tileY); break;
+                    case TileType.Lava: tileToSet = GetRandomTile(lavaTiles, tileX, tileY); break;
                 }
 
                 // 타일맵 도화지에 해당 타일 칠하기
@@ -126,5 +126,19 @@ public class ChunkManager : MonoBehaviour
                 tilemap.SetTile(new Vector3Int(startX + x, startY + y, 0), null);
             }
         }
+    }
+
+    TileBase GetRandomTile(List<TileBase> tileList, int x, int y)
+    {
+        // 인스펙터에 타일을 하나도 안 넣었을 때 에러가 나는 것을 방지
+        if (tileList == null || tileList.Count == 0) return null;
+
+        // 좌표(x, y)를 시드값으로 사용하여 항상 일정한 랜덤값을 얻음
+        int seed = x * 10000 + y;
+        System.Random prng = new System.Random(seed);
+
+        // 리스트의 개수 안에서 랜덤한 인덱스를 뽑아 반환
+        int randomIndex = prng.Next(0, tileList.Count);
+        return tileList[randomIndex];
     }
 }
