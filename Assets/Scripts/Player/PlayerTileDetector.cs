@@ -1,23 +1,35 @@
 using UnityEngine;
+using UnityEngine.Tilemaps; // 🌟 WorldToCell을 쓰기 위해 반드시 추가!
 
 public class PlayerTileDetector : MonoBehaviour
 {
+    [Header("타일맵 연결")]
+    public Tilemap tilemap; // 인스펙터에서 씬에 있는 타일맵을 드래그해서 연결해주세요
+
+    [Header("현재 상태 (Read Only)")]
     public TileType currentTile;
+
+    private TileType lastLoggedTile = TileType.None; // 로그 도배 방지
 
     void Update()
     {
-        // 1. 플레이어의 현재 실제 위치(World Position) 가져오기
-        Vector2 pos = transform.position;
+        // 타일맵이 연결되지 않았을 때의 에러 방지
+        if (tilemap == null) return;
 
-        // 2. 실제 위치를 정수형 그리드 좌표로 변환 (반올림 처리)
-        // 주의: 아이소메트릭 뷰의 경우, 그리드 모양에 따라 별도의 수학적 변환 공식이 필요할 수 있습니다.
-        int gridX = Mathf.RoundToInt(pos.x);
-        int gridY = Mathf.RoundToInt(pos.y);
+        // 1. 유니티 공식 함수를 사용해 실제 위치를 정확한 그리드 좌표로 변환! (핵심 수정 부분)
+        Vector3Int gridPos = tilemap.WorldToCell(transform.position);
 
-        // 3. 맵 매니저(자판기)에 현재 좌표를 넣어서 밟고 있는 장판 확인
-        currentTile = MapManager.GetTileAt(gridX, gridY);
+        // 2. 맵 매니저에 현재 좌표를 넣어서 밟고 있는 장판 확인
+        currentTile = MapManager.GetTileAt(gridPos.x, gridPos.y);
 
-        // 4. 장판에 따른 효과 적용 함수 호출
+        // 🌟 [디버그 로그] 타일이 바뀔 때만 콘솔에 출력해서 정확히 확인
+        if (currentTile != lastLoggedTile)
+        {
+            Debug.Log($"<color=cyan>[타일 인식기]</color> 타일맵 좌표 ({gridPos.x}, {gridPos.y}) ➡ 밟은 바닥: {currentTile}");
+            lastLoggedTile = currentTile;
+        }
+
+        // 3. 장판에 따른 효과 적용 함수 호출
         ApplyFloorEffect(currentTile);
     }
 
@@ -36,4 +48,5 @@ public class PlayerTileDetector : MonoBehaviour
                 break;
         }
     }
+
 }
