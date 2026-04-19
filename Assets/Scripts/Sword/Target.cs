@@ -1,9 +1,12 @@
-using System; // Action 이벤트를 사용하기 위해 필수입니다.
+using System;
 using System.Collections;
 using UnityEngine;
 
 public class Target : MonoBehaviour
 {
+    [Header("Target Data (Scriptable Object)")]
+    public TargetData myData; // 현재 검이 가지고 있는 데이터
+
     [Header("Position Settings")]
     public float rangeX = 8f, rangeY = 4.5f;
     public float minDistance = 3.0f; // 다른 검이나 플레이어와 유지할 최소 거리
@@ -19,11 +22,32 @@ public class Target : MonoBehaviour
     public event Action OnLanded;
 
     private Transform playerTransform;
+    private SpriteRenderer sr;
+
+    void Awake()
+    {
+        // 렌더러 컴포넌트를 미리 찾아둡니다.
+        sr = GetComponent<SpriteRenderer>();
+    }
 
     void Start()
     {
         GameObject player = GameObject.FindWithTag("Player");
         if (player != null) playerTransform = player.transform;
+    }
+
+    // [핵심 추가] 매니저가 이 검을 새로 생성할 때 데이터를 주입해주는 함수
+    public void InitData(TargetData data)
+    {
+        myData = data;
+        if (sr != null && myData != null)
+        {
+            // 검의 색상을 SO 데이터에 설정된 색상으로 즉시 변경
+            sr.color = myData.trailColor;
+        }
+
+        // 하이어라키 창에서 보기 편하도록 이름 변경
+        gameObject.name = $"Target_{myData.targetName}";
     }
 
     public void Relocate()
@@ -40,7 +64,7 @@ public class Target : MonoBehaviour
         // --- 1. 목적지 좌표 계산 ---
         do
         {
-            // 랜덤 좌표 뽑기
+            // 랜덤 좌표 뽑기 (UnityEngine 명시하여 에러 방지)
             targetPos = new Vector2(UnityEngine.Random.Range(-rangeX, rangeX), UnityEngine.Random.Range(-rangeY, rangeY));
 
             // 다른 타겟과 겹치는지 확인

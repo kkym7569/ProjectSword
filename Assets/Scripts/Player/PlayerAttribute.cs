@@ -14,11 +14,12 @@ public class PlayerAttribute : MonoBehaviour
     public float delayAfterAttack = 2.0f;
     public float pointGainInterval = 0.1f;
 
-    // --- 🌟 UI로 보낼 이벤트들 (허공에 소리치기) ---
-    // (현재 채우는 칸 인덱스, 0.0~1.0 사이의 채워진 비율)
+    // --- 🌟 UI로 보낼 이벤트들 ---
     public event Action<int, float> OnGaugeUpdated;
-    // (완성된 칸 인덱스, 최종 결정된 속성)
     public event Action<int, ElementType> OnSlotCompleted;
+
+    // [핵심 추가] 5칸이 모두 다 찼을 때 매니저에게 알릴 전역 이벤트!
+    public static event Action OnAllSlotsFilled;
 
     [Header("Current Status (Read Only)")]
     public int currentSlotIndex = 0;
@@ -44,7 +45,6 @@ public class PlayerAttribute : MonoBehaviour
 
     private void Update()
     {
-        // 총 5칸(인덱스 4)을 넘어가면 중지
         if (currentSlotIndex >= 5) return;
         if (isAttacking) return;
 
@@ -57,7 +57,7 @@ public class PlayerAttribute : MonoBehaviour
 
     private void GainPointBasedOnTile()
     {
-        string increasedElement = ""; // 로그 출력을 위한 문자열
+        string increasedElement = "";
 
         switch (tileDetector.currentTile)
         {
@@ -70,10 +70,8 @@ public class PlayerAttribute : MonoBehaviour
         int totalPoints = grassPoints + waterPoints + lavaPoints;
         float fillRatio = (float)totalPoints / maxTotalPoints;
 
-        // 🌟 [디버그 로그 추가] 점수가 오를 때마다 현재 상태 출력
         Debug.Log($"[점수 획득] <color=green>{increasedElement}</color> +1 ➡ {currentSlotIndex + 1}번째 칸 총점: {totalPoints} / {maxTotalPoints} ({(fillRatio * 100):F1}%)");
 
-        // 🌟 이벤트 발송: "현재 칸이 이만큼 찼어!"
         OnGaugeUpdated?.Invoke(currentSlotIndex, fillRatio);
 
         if (totalPoints >= maxTotalPoints)
@@ -95,13 +93,11 @@ public class PlayerAttribute : MonoBehaviour
 
         currentElement = candidates[UnityEngine.Random.Range(0, candidates.Count)];
 
-        // 🌟 [디버그 로그 추가] 한 칸이 모두 채워졌을 때 결과 출력
         Debug.Log("=====================================");
         Debug.Log($"🌟 {currentSlotIndex + 1}번째 칸 완성! (풀: {grassPoints}, 물: {waterPoints}, 용암: {lavaPoints})");
         Debug.Log($"최종 결정된 속성: <color=yellow>{currentElement}</color>");
         Debug.Log("=====================================");
 
-        // 🌟 이벤트 발송: "현재 칸이 이 속성으로 끝났어!"
         OnSlotCompleted?.Invoke(currentSlotIndex, currentElement);
 
         currentSlotIndex++;
@@ -109,7 +105,13 @@ public class PlayerAttribute : MonoBehaviour
 
         if (currentSlotIndex >= 5)
         {
-            Debug.Log("<color=orange>5개의 속성 칸이 모두 가득 찼습니다!</color>");
+            Debug.Log("<color=orange>5개의 속성 칸이 모두 가득 찼습니다! 새로운 타겟을 소환합니다!</color>");
+
+            // 🌟 [추가] 5칸이 다 찼으니 매니저에게 타겟을 달라고 신호를 쏩니다.
+            OnAllSlotsFilled?.Invoke();
+
+            // 5칸이 찬 후 다시 처음부터 모으게 하려면 아래 주석을 푸세요.
+            currentSlotIndex = 0; 
         }
     }
 }
