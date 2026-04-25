@@ -88,7 +88,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 506940061
   m_SortingLayer: 2
-  m_SortingOrder: 0
+  m_SortingOrder: 50
   m_MaskInteraction: 0
   m_Sprite: {fileID: -9095717837082945937, guid: 207ee8102dd4143d288186ef0be518ee, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -450,6 +450,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4326860f92db7e644a2567dd056def6a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerTileDetector
+  tilemap: {fileID: 0}
   currentTile: 0
 --- !u!1 &6737413020748110099
 GameObject:

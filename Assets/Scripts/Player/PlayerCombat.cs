@@ -1,26 +1,34 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(PlayerMain))] // 이제 PlayerMain과 항상 같이 붙어있어야 함
+[RequireComponent(typeof(PlayerMain))]
 public class PlayerCombat : MonoBehaviour
 {
     [Header("Combat Settings")]
-    public float slashThickness = 1.0f; // 타격 및 기즈모 두께
-    public LayerMask enemyLayer;        // 적 판정용 레이어
+    public float slashThickness = 1.0f;
+    public LayerMask enemyLayer;
+    public int attackDamage = 20;
 
-    [Header("Visual Effects (Line Renderer)")]
-    public LineRenderer slashEffect;    // 이동에서 가져온 검기 효과
+    [Header("Visual Effects")]
+    public LineRenderer slashEffect;
     public float slashFadeTime = 0.3f;
 
-    private PlayerMain mainScript;
+    [Header("Special Kill Setting")]
+    public int specialKillThreshold = 3; // 3명 이상 벨 때 연출 발동
 
+    private PlayerMain mainScript;
     private float originalSlashWidth;
     private Coroutine fadeCoroutine;
 
-    // 판정 및 기즈모용 상태 변수
     private bool isAttacking = false;
     private Vector2 startPos;
     private Vector2 currentPos;
+
+    // 중복 타격 방지용 명부
+    private HashSet<Collider2D> hitEnemiesThisSlash = new HashSet<Collider2D>();
+    // 연출용 피해자 명단
+    private List<EnemyBase> victimsThisSlash = new List<EnemyBase>();
 
     private void Awake()
     {
@@ -38,7 +46,6 @@ public class PlayerCombat : MonoBehaviour
 
     private void OnEnable()
     {
-        // 🌟 메인 스크립트의 이동 이벤트 구독
         mainScript.OnAttackMoveStarted += HandleAttackStart;
         mainScript.OnAttackMoveUpdated += HandleAttackUpdate;
         mainScript.OnAttackMoveEnded += HandleAttackEnd;
@@ -46,7 +53,6 @@ public class PlayerCombat : MonoBehaviour
 
     private void OnDisable()
     {
-        // 🌟 구독 해제
         mainScript.OnAttackMoveStarted -= HandleAttackStart;
         mainScript.OnAttackMoveUpdated -= HandleAttackUpdate;
         mainScript.OnAttackMoveEnded -= HandleAttackEnd;
@@ -58,15 +64,21 @@ public class PlayerCombat : MonoBehaviour
         startPos = attackStart;
         currentPos = attackStart;
 
+        hitEnemiesThisSlash.Clear();
+        victimsThisSlash.Clear();
+
         if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
 
-        // 이동 시작 시 검기(Line Renderer) 켜기
         if (slashEffect != null)
         {
             slashEffect.widthMultiplier = originalSlashWidth;
             slashEffect.enabled = true;
             slashEffect.SetPosition(0, startPos);
             slashEffect.SetPosition(1, startPos);
+
+            // 🌟 검기 이펙트 초기 색상 복구 (연출 후를 대비)
+            slashEffect.startColor = Color.white;
+            slashEffect.endColor = Color.white;
         }
     }
 
@@ -74,14 +86,12 @@ public class PlayerCombat : MonoBehaviour
     {
         currentPos = attackCurrent;
 
-        // 1. 라인 렌더러 시각 효과 실시간 업데이트
         if (slashEffect != null)
         {
             slashEffect.SetPosition(0, attackStart);
             slashEffect.SetPosition(1, attackCurrent);
         }
 
-        // 2. 실시간 타격 판정
         CheckSlashAttack(attackStart, attackCurrent);
     }
 
@@ -89,14 +99,22 @@ public class PlayerCombat : MonoBehaviour
     {
         isAttacking = false;
 
-        // 이동이 끝나면 검기가 서서히 사라지는 연출 시작
+        // 🌟 [핵심] 3명 이상 베었을 때 특수 연출 호출 (플레이어 객체 포함)
+        if (victimsThisSlash.Count >= specialKillThreshold)
+        {
+            if (HitEffectManager.Instance != null)
+            {
+                // 플레이어 본인(gameObject)과 검기(slashEffect)를 함께 전달할 수 있도록 설계
+                HitEffectManager.Instance.PlaySpecialKillEffect(victimsThisSlash, gameObject, slashEffect);
+            }
+        }
+
         if (slashEffect != null)
         {
             fadeCoroutine = StartCoroutine(FadeOutSlash());
         }
     }
 
-    // [핵심] 실제 적을 베는 로직
     private void CheckSlashAttack(Vector2 start, Vector2 current)
     {
         float distance = Vector2.Distance(start, current);
@@ -111,12 +129,18 @@ public class PlayerCombat : MonoBehaviour
 
         foreach (var hit in hits)
         {
-            // 투사체 발사나 특수 공격 연계는 향후 이 부분에 추가
-            Debug.Log($"<color=red>{hit.collider.name}</color> 타격 판정!");
+            if (hitEnemiesThisSlash.Contains(hit.collider)) continue;
+            hitEnemiesThisSlash.Add(hit.collider);
+
+            EnemyBase enemy = hit.collider.GetComponent<EnemyBase>();
+            if (enemy != null)
+            {
+                victimsThisSlash.Add(enemy);
+                enemy.TakeDamage(attackDamage);
+            }
         }
     }
 
-    // 검기 페이드아웃 코루틴
     private IEnumerator FadeOutSlash()
     {
         float timer = 0f;
@@ -129,7 +153,6 @@ public class PlayerCombat : MonoBehaviour
         slashEffect.enabled = false;
     }
 
-    // 판정 범위 기즈모
     private void OnDrawGizmos()
     {
         if (isAttacking)
@@ -145,11 +168,8 @@ public class PlayerCombat : MonoBehaviour
             Matrix4x4 rotationMatrix = Matrix4x4.TRS(centerPosition, Quaternion.Euler(0, 0, angle), Vector3.one);
             Gizmos.matrix = rotationMatrix;
 
-            Gizmos.color = new Color(1, 0, 0, 0.3f);
+            Gizmos.color = new Color(1, 0, 0, 0.2f);
             Gizmos.DrawCube(Vector3.zero, boxSize);
-
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireCube(Vector3.zero, boxSize);
         }
     }
 }
