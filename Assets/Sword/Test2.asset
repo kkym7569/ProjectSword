@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: Test2
   m_EditorClassIdentifier: Assembly-CSharp::TargetData
   targetName: t2
-  trailColor: {r: 1, g: 0, b: 0, a: 1}
+  trailColor: {r: 1, g: 0.8873018, b: 0, a: 1}
   dashSpeedMultiplier: 1

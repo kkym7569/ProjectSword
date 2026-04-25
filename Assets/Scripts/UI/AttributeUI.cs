@@ -8,68 +8,91 @@ public class AttributeUI : MonoBehaviour
 
     [Header("UI 세팅")]
     public Image[] slotImages;
-    public Color fillingColor = new Color(0.5f, 0.5f, 0.5f, 1f); // 회색 (알파 100%)
+    public Color fillingColor = new Color(0.5f, 0.5f, 0.5f, 1f); // 채워지는 중 (회색)
     public Color grassColor = Color.green;
     public Color waterColor = Color.blue;
     public Color lavaColor = Color.red;
 
-    private void Start()
+    private void Awake()
     {
-        // 🌟 [안전장치] 혹시 인스펙터에서 깜빡하고 안 넣었을 경우 자동으로 플레이어를 찾음
+        // 인스펙터에서 할당 안 했을 경우 자동 탐색
         if (targetAttribute == null)
         {
             targetAttribute = FindObjectOfType<PlayerAttribute>();
-            Debug.Log("<color=orange>[UI] 인스펙터에 플레이어가 없어서 자동으로 찾았습니다!</color>");
         }
+    }
 
-        // 이벤트 강제 재구독 (놓친 신호 방지)
+    private void OnEnable()
+    {
         if (targetAttribute != null)
         {
-            targetAttribute.OnGaugeUpdated -= UpdateSlotFill; // 중복 방지
-            targetAttribute.OnSlotCompleted -= UpdateSlotColor;
-
+            // 이벤트 구독
             targetAttribute.OnGaugeUpdated += UpdateSlotFill;
             targetAttribute.OnSlotCompleted += UpdateSlotColor;
-            Debug.Log("<color=cyan>[UI] 플레이어의 신호를 성공적으로 연결했습니다!</color>");
-        }
-        else
-        {
-            Debug.LogError("[UI] 🚨 맵에 PlayerAttribute를 가진 플레이어가 없습니다!");
-        }
 
-        // 시작 시 초기화
+            // 🌟 5칸이 다 찼을 때 리셋 신호를 받기 위해 구독
+            PlayerAttribute.OnAllSlotsFilled += ResetAllSlots;
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (targetAttribute != null)
+        {
+            // 메모리 누수 및 중복 방지를 위한 구독 해제
+            targetAttribute.OnGaugeUpdated -= UpdateSlotFill;
+            targetAttribute.OnSlotCompleted -= UpdateSlotColor;
+
+            PlayerAttribute.OnAllSlotsFilled -= ResetAllSlots;
+        }
+    }
+
+    private void Start()
+    {
+        // 시작 시 모든 슬롯 초기화
+        ResetAllSlots();
+    }
+
+    // --- 이벤트 콜백 함수들 ---
+
+    // 1. 게이지가 차오를 때 (매 프레임 호출)
+    private void UpdateSlotFill(int slotIndex, float fillAmount)
+    {
+        if (slotIndex < slotImages.Length && slotImages[slotIndex] != null)
+        {
+            // 채워지는 동안은 기본 색상 유지
+            slotImages[slotIndex].color = fillingColor;
+            slotImages[slotIndex].fillAmount = fillAmount;
+        }
+    }
+
+    // 2. 한 칸이 완전히 완성되었을 때 (색상 결정)
+    private void UpdateSlotColor(int slotIndex, PlayerAttribute.ElementType element)
+    {
+        if (slotIndex < slotImages.Length && slotImages[slotIndex] != null)
+        {
+            // 완성되었으므로 fillAmount를 1로 확실히 고정
+            slotImages[slotIndex].fillAmount = 1f;
+
+            switch (element)
+            {
+                case PlayerAttribute.ElementType.Grass: slotImages[slotIndex].color = grassColor; break;
+                case PlayerAttribute.ElementType.Water: slotImages[slotIndex].color = waterColor; break;
+                case PlayerAttribute.ElementType.Lava: slotImages[slotIndex].color = lavaColor; break;
+            }
+        }
+    }
+
+    // 3. 🌟 5칸이 모두 차서 리셋될 때 호출
+    private void ResetAllSlots()
+    {
+        Debug.Log("<color=yellow>[UI] 모든 슬롯이 리셋되었습니다.</color>");
         foreach (var img in slotImages)
         {
             if (img != null)
             {
                 img.fillAmount = 0f;
                 img.color = fillingColor;
-            }
-        }
-    }
-
-    // 신호를 받으면 실행되는 함수 1: 게이지 채우기
-    private void UpdateSlotFill(int slotIndex, float fillAmount)
-    {
-
-        if (slotIndex < slotImages.Length && slotImages[slotIndex] != null)
-        {
-            slotImages[slotIndex].color = fillingColor;
-            slotImages[slotIndex].fillAmount = fillAmount;
-        }
-    }
-
-    // 신호를 받으면 실행되는 함수 2: 다 찬 게이지 색깔 바꾸기
-    private void UpdateSlotColor(int slotIndex, PlayerAttribute.ElementType element)
-    {
-      
-        if (slotIndex < slotImages.Length && slotImages[slotIndex] != null)
-        {
-            switch (element)
-            {
-                case PlayerAttribute.ElementType.Grass: slotImages[slotIndex].color = grassColor; break;
-                case PlayerAttribute.ElementType.Water: slotImages[slotIndex].color = waterColor; break;
-                case PlayerAttribute.ElementType.Lava: slotImages[slotIndex].color = lavaColor; break;
             }
         }
     }
