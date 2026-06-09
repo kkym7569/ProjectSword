@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System;
 using System.Collections;
 
@@ -9,7 +9,15 @@ public abstract class EnemyBase : MonoBehaviour
     protected int currentHp;
     protected Transform targetPlayer;
 
+    [Header("Score")]
+    [Tooltip("이 적을 처치했을 때 플레이어가 얻는 점수")]
+    public int scoreValue = 10;
+
+    // 기존 이벤트 유지 (RoundManager 호환)
     public static Action<GameObject> OnEnemyDied;
+
+    // 🌟 점수 전달 이벤트: (처치된 적 GameObject, 획득 점수)
+    public static Action<GameObject, int> OnEnemyDiedWithScore;
 
     protected SpriteRenderer spriteRenderer;
     protected Color originalColor;
@@ -22,9 +30,7 @@ public abstract class EnemyBase : MonoBehaviour
 
         spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         if (spriteRenderer != null)
-        {
             originalColor = spriteRenderer.color;
-        }
     }
 
     public Color GetOriginalColor() => originalColor;
@@ -35,7 +41,6 @@ public abstract class EnemyBase : MonoBehaviour
 
         if (spriteRenderer != null && gameObject.activeInHierarchy)
         {
-            // 이전에 돌던 피격 깜빡임만 멈추고 새로 시작
             StopCoroutine("FlashRoutine");
             StartCoroutine("FlashRoutine");
         }
@@ -52,18 +57,18 @@ public abstract class EnemyBase : MonoBehaviour
 
     protected virtual void Die()
     {
-        // 1. 논리적 즉시 사망 처리
+        // 기존 이벤트 (RoundManager용)
         OnEnemyDied?.Invoke(gameObject);
 
-        // 2. 물리 및 추적 로직 즉시 정지
+        // 🌟 점수 포함 이벤트 (PlayerScore용)
+        OnEnemyDiedWithScore?.Invoke(gameObject, scoreValue);
+
         this.enabled = false;
         Collider2D col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
 
-        // 3. 사망 연출 시작
         if (spriteRenderer != null)
         {
-            // 🌟 중요: StopAllCoroutines를 쓰지 않고 피격 깜빡임만 멈춤
             StopCoroutine("FlashRoutine");
             StartCoroutine(FadeOutAndDestroy());
         }
@@ -75,19 +80,15 @@ public abstract class EnemyBase : MonoBehaviour
 
     private IEnumerator FadeOutAndDestroy()
     {
-        // 🌟 일섬 연출(HitEffectManager)이 끝날 때까지 실제 시간 기준으로 대기
-        // 연출 시간(0.4초)보다 조금 더 길게 대기하여 씹힘 방지
         yield return new WaitForSecondsRealtime(0.5f);
 
-        float duration = 1.0f; // 서서히 사라지는 시간
+        float duration = 1.0f;
         float timer = 0f;
-
-        // 연출 종료 후 현재 색상(originalColor일 가능성이 높음)에서 시작
         Color startColor = spriteRenderer.color;
 
         while (timer < duration)
         {
-            timer += Time.deltaTime; // 연출 종료 후이므로 정상 작동
+            timer += Time.deltaTime;
             float alpha = Mathf.Lerp(startColor.a, 0f, timer / duration);
             spriteRenderer.color = new Color(startColor.r, startColor.g, startColor.b, alpha);
             yield return null;

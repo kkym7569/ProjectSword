@@ -107,6 +107,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ChaserEnemy
   maxHp: 10
+  scoreValue: 3
   moveSpeed: 3
 --- !u!50 &1301150734020645975
 Rigidbody2D:

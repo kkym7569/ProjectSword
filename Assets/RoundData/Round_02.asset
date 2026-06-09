@@ -19,4 +19,4 @@ MonoBehaviour:
   enemyWaves:
   - enemyPrefab: {fileID: 7880326600043252718, guid: 9ff2145692a247d4da4fdcbc5166d348, type: 3}
     count: 10
-    spawnInterval: 0
+    spawnInterval: 1
