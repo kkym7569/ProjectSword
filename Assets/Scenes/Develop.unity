@@ -1204,6 +1204,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RoundManager
   rounds:
   - {fileID: 11400000, guid: 4a73872e6531ee6498b007ec3d9d5b89, type: 2}
+  - {fileID: 11400000, guid: 6c37a06eb9f34ab43805b8f4c7e589cc, type: 2}
+  - {fileID: 11400000, guid: 9c90dacae9305754ab70982fc48f9f82, type: 2}
+  - {fileID: 11400000, guid: 65b1ef60f6da6624e8e22d010cf23c66, type: 2}
+  - {fileID: 11400000, guid: 479ade5d696ca0c46a796ef9a19727a4, type: 2}
   player: {fileID: 0}
   spawnRadius: 8
   loopRounds: 0

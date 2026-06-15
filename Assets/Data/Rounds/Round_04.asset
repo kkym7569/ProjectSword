@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a4599161b0b2dd343977e63d1199a044, type: 3}
-  m_Name: Round_02
+  m_Name: Round_04
   m_EditorClassIdentifier: Assembly-CSharp::RoundData
   roundNumber: 2
   startDelay: 3
@@ -18,5 +18,8 @@ MonoBehaviour:
   restDuration: 5
   enemyWaves:
   - enemyPrefab: {fileID: 7880326600043252718, guid: f565a03569ed3d1429f1c2b3d8357080, type: 3}
+    count: 10
+    spawnInterval: 1
+  - enemyPrefab: {fileID: 7880326600043252718, guid: b0bd62c96b4e53e4db5bb544fdb462b2, type: 3}
     count: 10
     spawnInterval: 1

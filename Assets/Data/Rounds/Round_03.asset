@@ -17,9 +17,9 @@ MonoBehaviour:
   roundDuration: 60
   restDuration: 5
   enemyWaves:
-  - enemyPrefab: {fileID: 7880326600043252718, guid: 9ff2145692a247d4da4fdcbc5166d348, type: 3}
+  - enemyPrefab: {fileID: 7880326600043252718, guid: f565a03569ed3d1429f1c2b3d8357080, type: 3}
     count: 10
     spawnInterval: 1
-  - enemyPrefab: {fileID: 7880326600043252718, guid: 586fc1535ecedd047867c082ecebf63c, type: 3}
+  - enemyPrefab: {fileID: 7880326600043252718, guid: b0bd62c96b4e53e4db5bb544fdb462b2, type: 3}
     count: 5
     spawnInterval: 1

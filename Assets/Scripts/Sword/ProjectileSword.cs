@@ -1,51 +1,57 @@
-using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// 발사체 검: 대시 출발 직전, 출발 자리에서 가장 가까운 적 N개를 향해 구체를 발사합니다.
-/// 본체는 기본 이동 베기와 동일하게 작동합니다.
+/// 발사체 검: 이동공격 출발 직전, 플레이어 주변 4방향(상/하/좌/우)에서
+/// 발사체를 소환합니다. 각 발사체는 가장 가까운 적을 자동추적합니다.
 /// </summary>
 public class ProjectileSword : SwordBehaviour
 {
+    // 4방향 오프셋 (상, 하, 좌, 우)
+    private static readonly Vector2[] _directions = new Vector2[]
+    {
+        Vector2.up,
+        Vector2.down,
+        Vector2.left,
+        Vector2.right,
+    };
+
     public override void OnBeforeAttackMove(Vector2 playerPos)
     {
         if (data.projectilePrefab == null)
         {
-            Debug.LogWarning("[ProjectileSword] projectilePrefab이 TargetData에 설정되지 않았습니다.");
+            Debug.LogWarning("[ProjectileSword] TargetData에 projectilePrefab이 없습니다.");
             return;
         }
 
-        // 씬의 모든 적을 거리순으로 정렬
         EnemyBase[] allEnemies = Object.FindObjectsByType<EnemyBase>(FindObjectsSortMode.None);
-        if (allEnemies.Length == 0) return;
+        if (allEnemies.Length == 0)
+        {
+            Debug.Log("[ProjectileSword] 적이 없어 발사체를 생성하지 않습니다.");
+            return;
+        }
 
-        List<EnemyBase> sorted = allEnemies
-            .OrderBy(e => Vector2.Distance(playerPos, e.transform.position))
-            .ToList();
-
-        int count = Mathf.Min(data.projectileCount, sorted.Count);
+        int count = Mathf.Min(data.projectileCount, _directions.Length); // 최대 4개
 
         for (int i = 0; i < count; i++)
         {
-            FireProjectile(playerPos, sorted[i].transform.position);
-        }
-    }
+            // 4방향 위치에서 소환
+            Vector2 spawnPos = playerPos + _directions[i] * data.spawnOffset;
 
-    private void FireProjectile(Vector2 from, Vector2 targetPos)
-    {
-        GameObject proj = Object.Instantiate(data.projectilePrefab, from, Quaternion.identity);
+            // 각 발사체마다 가장 가까운 적 배정
+            EnemyBase target = allEnemies
+                .OrderBy(e => Vector2.Distance(spawnPos, e.transform.position))
+                .First();
 
-        SwordProjectile sp = proj.GetComponent<SwordProjectile>();
-        if (sp != null)
-        {
-            sp.Launch(targetPos, data.projectileSpeed, data.projectileDamage);
-        }
-        else
-        {
-            // SwordProjectile 컴포넌트가 없으면 자동으로 붙여줌
-            sp = proj.AddComponent<SwordProjectile>();
-            sp.Launch(targetPos, data.projectileSpeed, data.projectileDamage);
+            GameObject proj = Object.Instantiate(
+                data.projectilePrefab, spawnPos, Quaternion.identity);
+
+            SwordProjectile sp = proj.GetComponent<SwordProjectile>();
+            if (sp == null) sp = proj.AddComponent<SwordProjectile>();
+
+            sp.Launch(target, data.projectileSpeed, data.projectileDamage);
+
+            Debug.Log($"[ProjectileSword] 발사체 {i + 1} ({_directions[i]}) → {target.gameObject.name}");
         }
     }
 }

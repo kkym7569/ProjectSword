@@ -21,6 +21,8 @@ public class TargetData : ScriptableObject
     public float projectileSpeed = 10f;
     [Tooltip("구체 데미지")]
     public int projectileDamage = 15;
+    [Tooltip("플레이어로부터 발사체 소환 거리 (4방향 오프셋)")]
+    public float spawnOffset = 1.0f;
 
     [Header("발도 검 설정 (Battoujutsu 타입일 때만 사용)")]
     [Tooltip("도착 후 회전 공격 반경")]

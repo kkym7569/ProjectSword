@@ -16,7 +16,7 @@ MonoBehaviour:
   trailColor: {r: 1, g: 0, b: 0, a: 1}
   dashSpeedMultiplier: 1
   swordType: 1
-  projectilePrefab: {fileID: 0}
+  projectilePrefab: {fileID: 108241359939229306, guid: cc0e7c98ce5a98f409a1377d2e4e9c6a, type: 3}
   projectileCount: 4
   projectileSpeed: 10
   projectileDamage: 15
