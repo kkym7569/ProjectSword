@@ -5,271 +5,213 @@ using UnityEngine.UI;
 
 public class TargetManager : MonoBehaviour
 {
-    [Header("타겟 및 UI 연결")]
-    public List<GameObject> targets = new List<GameObject>();
-    public List<Button> targetButtons = new List<Button>();
+    [Header("동적 생성 프리팹 (필수 연결)")]
+    public GameObject targetPrefab;   // Target 프리팹
+    public Button     buttonPrefab;   // Button 프리팹
+    public Transform  buttonParent;   // TargetButtonGroup
 
-    [Header("동적 생성 프리팹")]
-    public GameObject targetPrefab;
-    public Button buttonPrefab;
-    public Transform buttonParent;
+    [Header("기본 검 데이터")]
+    [Tooltip("게임 시작 시 생성할 기본 검. 비워두면 Normal 타입.")]
+    public TargetData defaultSwordData;
 
-    [Header("보상 타겟 목록")]
-    public List<TargetData> availableRewards;
+    [Header("추가 가능한 특수 검 목록")]
+    [Tooltip("게이지 5칸 달성 시 여기서 랜덤 1개 추가됩니다.")]
+    public List<TargetData> addableSwords;
 
-    [Header("플레이어 및 연출")]
-    public PlayerMain player;
-    [Range(0f, 1f)] public float throwDelay = 0.15f;
+    [Header("플레이어 연결 (비워두면 자동 탐색)")]
+    public PlayerMain   player;
+    public PlayerCombat playerCombat;
 
-    [Header("Direction Selection")]
-    [SerializeField] private DirectionSelector directionSelector;
-    [SerializeField] private float directionSelectDelay = 3f;
+    [Range(0f, 1f)]
+    public float throwDelay = 0.05f;
 
-    [Header("Target Limit")]
-    [SerializeField] private int maxTargetCount = 6;
+    // ── 내부 상태 ──────────────────────────────
+    private List<GameObject>     _targets      = new List<GameObject>();
+    private List<Button>         _buttons      = new List<Button>();
+    private List<SwordBehaviour> _behaviours   = new List<SwordBehaviour>();
+    private int                  _aliveCount   = 0;
+    private Dictionary<TargetData, int> _dataCountMap = new Dictionary<TargetData, int>();
 
-    public bool HasReachedTargetLimit => targets.Count >= maxTargetCount;
+    // ──────────────────────────────────────────
+    private void OnEnable()  { PlayerAttribute.OnAllSlotsFilled += AddRandomSword; }
+    private void OnDisable() { PlayerAttribute.OnAllSlotsFilled -= AddRandomSword; }
 
-    private int activeTargetCount;
-    private bool isGlobalThrowing = false; // 전체 리스폰 중에만 true
-    private bool isFirstRespawn = true;
-    private bool isDirectionSelecting;
-    private bool isDispatchingTargets;
-    private readonly HashSet<int> directionThrownTargets = new HashSet<int>();
-
-    private void OnEnable()
+    // ──────────────────────────────────────────
+    //  초기화
+    // ──────────────────────────────────────────
+    private void Start()
     {
-        PlayerAttribute.OnAllSlotsFilled += GiveNewTargetReward;
-    }
+        // 플레이어 자동 탐색
+        if (player       == null) player       = FindObjectOfType<PlayerMain>();
+        if (playerCombat == null) playerCombat = FindObjectOfType<PlayerCombat>();
+        if (player != null && player.manager == null) player.manager = this;
 
-    private void OnDisable()
-    {
-        PlayerAttribute.OnAllSlotsFilled -= GiveNewTargetReward;
-    }
-
-    void Start()
-    {
-        if (player == null) player = FindObjectOfType<PlayerMain>();
-        activeTargetCount = targets.Count;
-
-        for (int i = 0; i < targets.Count; i++)
+        if (targetPrefab == null || buttonPrefab == null || buttonParent == null)
         {
-            int index = i;
-            targetButtons[i].onClick.AddListener(() => OnTargetButtonClicked(index));
-            Target targetScript = targets[i].GetComponent<Target>();
-            if (targetScript != null) targetScript.OnLanded += HandleTargetLanded;
-
-            targets[i].SetActive(false);
-            targetButtons[i].gameObject.SetActive(false);
-        }
-        RespawnAll();
-    }
-
-    private void GiveNewTargetReward()
-    {
-        if (targets.Count >= maxTargetCount) return;
-        if (availableRewards == null || availableRewards.Count == 0) return;
-
-        int randomIndex = Random.Range(0, availableRewards.Count);
-        TargetData selectedData = availableRewards[randomIndex];
-        AddNewTarget(selectedData);
-    }
-
-    private void AddNewTarget(TargetData newTargetData)
-    {
-        if (targets.Count >= maxTargetCount) return;
-
-        int newIndex = targets.Count;
-
-        // 1. UI 생성
-        Button newBtn = Instantiate(buttonPrefab, buttonParent);
-        newBtn.onClick.AddListener(() => OnTargetButtonClicked(newIndex));
-        targetButtons.Add(newBtn);
-
-        // 2. 칼 생성
-        GameObject newObj = Instantiate(targetPrefab);
-        Target targetScript = newObj.GetComponent<Target>();
-        targetScript.InitData(newTargetData);
-        targetScript.OnLanded += HandleTargetLanded;
-        targets.Add(newObj);
-
-        // 🌟 [수정] 전체 잠금을 하지 않고, 이 버튼만 임시로 비활성화
-        newBtn.interactable = false;
-
-        newObj.SetActive(true);
-        newBtn.gameObject.SetActive(true);
-        targetScript.Relocate();
-
-        // 주의: activeTargetCount는 리스폰 로직에서 관리하므로 여기서 건드리지 않아도 됨
-    }
-
-    public void OnTargetButtonClicked(int index)
-    {
-        if (index < 0 || index >= targets.Count) return;
-
-        if (isDirectionSelecting)
-        {
-            if (directionThrownTargets.Contains(index) || directionSelector == null) return;
-
-            directionThrownTargets.Add(index);
-            SetButtonSelectedVisual(targetButtons[index], true);
-            targetButtons[index].interactable = false;
-
-            targets[index].SetActive(true);
-            targets[index].GetComponent<Target>().Relocate(directionSelector.GetDirection());
+            Debug.LogError("[TargetManager] targetPrefab / buttonPrefab / buttonParent 가 비어 있습니다!");
             return;
         }
 
-        // 🌟 [수정] 전체 페이즈가 아니더라도, '해당' 칼이 날아가는 중이면 클릭 무시
-        Target targetScript = targets[index].GetComponent<Target>();
-        if (isGlobalThrowing || !targets[index].activeSelf || !targetScript.IsReady) return;
-
-        player.StartAttackToTarget(targets[index].transform);
+        // 기본 검 1개 생성 후 날리기
+        SpawnOne(defaultSwordData);
     }
 
-    public void TargetEaten(GameObject eatenTarget)
+    // ──────────────────────────────────────────
+    //  검 1개 생성 + 즉시 날리기
+    // ──────────────────────────────────────────
+    private void SpawnOne(TargetData data)
     {
-        eatenTarget.SetActive(false);
-        int index = targets.IndexOf(eatenTarget);
-        if (index != -1)
+        int idx = _targets.Count;   // 추가 전 index 확정
+
+        // ── 같은 타입 번호 계산 (항상 1부터 시작, 중복 시 2, 3, 4...) ──
+        int number = 1;
+        if (data != null)
         {
-            targetButtons[index].gameObject.SetActive(true);
-            targetButtons[index].interactable = false;
-            SetButtonSelectedVisual(targetButtons[index], true);
+            if (!_dataCountMap.ContainsKey(data)) _dataCountMap[data] = 0;
+            _dataCountMap[data]++;
+            number = _dataCountMap[data];
+        }
+        string numberText = number.ToString();
+
+        // ── 버튼 생성 ──
+        Button btn = Instantiate(buttonPrefab, buttonParent);
+        _buttons.Add(btn);
+        int captured = idx;
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() => OnButtonClicked(captured));
+        btn.interactable = false;
+        btn.gameObject.SetActive(true);
+
+        // ── 버튼 색상 적용 ──
+        if (data != null)
+        {
+            Image btnImage = btn.GetComponent<Image>();
+            if (btnImage != null) btnImage.color = data.trailColor;
         }
 
-        activeTargetCount--;
+        // ── 버튼 하위 TMP 텍스트에 번호 적용 ──
+        var btnTmp = btn.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+        if (btnTmp != null) btnTmp.text = numberText;
 
-        if (activeTargetCount <= 0)
+        // ── 검 오브젝트 생성 ──
+        GameObject obj = Instantiate(targetPrefab);
+        Target     t   = obj.GetComponent<Target>();
+
+        if (data != null) t.InitData(data);
+
+        // 타겟 하위 TMP 텍스트에 번호 적용
+        var targetTmp = obj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+        if (targetTmp != null) targetTmp.text = numberText;
+
+        // Hierarchy 이름에도 번호 반영
+        string baseName = data != null ? data.targetName : "Default";
+        obj.name = $"Target_{baseName}_{number}";
+
+        t.OnLanded += () => OnTargetLanded(captured);
+
+        _targets.Add(obj);
+
+        // ── 특수 동작 부착 ──
+        SwordBehaviour sb = (data != null && playerCombat != null)
+            ? SwordBehaviourFactory.Create(obj, data, playerCombat)
+            : null;
+        _behaviours.Add(sb);
+
+        // ── 날리기 ──
+        obj.SetActive(true);
+        _aliveCount++;
+        t.Relocate();
+
+        Debug.Log($"[TargetManager] 검 생성 index={idx} name={obj.name}");
+    }
+
+    // ──────────────────────────────────────────
+    //  착지 완료 콜백
+    // ──────────────────────────────────────────
+    private void OnTargetLanded(int idx)
+    {
+        Debug.Log($"[TargetManager] 검 index={idx} 착지 → 버튼 활성화");
+        if (idx < _buttons.Count)
         {
-            Invoke("RespawnAll", 0.5f);
+            _buttons[idx].interactable = true;
+            _buttons[idx].gameObject.SetActive(true);
         }
     }
 
-    void RespawnAll()
+    // ──────────────────────────────────────────
+    //  버튼 클릭 → 공격
+    // ──────────────────────────────────────────
+    private void OnButtonClicked(int idx)
     {
-        StartCoroutine(RespawnAllRoutine());
-    }
+        if (idx >= _targets.Count) return;
 
-    IEnumerator RespawnAllRoutine()
-    {
-        activeTargetCount = targets.Count;
-        isGlobalThrowing = true; // 전체 리스폰 시작
-        directionThrownTargets.Clear();
+        Target t = _targets[idx].GetComponent<Target>();
 
-        SetButtonsInteractable(false);
-
-        if (!isFirstRespawn)
+        if (t == null || !_targets[idx].activeSelf || !t.IsReady)
         {
-            for (int i = 0; i < targetButtons.Count; i++)
-            {
-                targetButtons[i].gameObject.SetActive(true);
-                targetButtons[i].interactable = true;
-                SetButtonSelectedVisual(targetButtons[i], false);
-            }
-
-            isDirectionSelecting = true;
-
-            if (directionSelector != null)
-            {
-                directionSelector.Show();
-            }
-
-            float directionSelectTimer = 0f;
-            while (directionSelectTimer < directionSelectDelay
-                && directionThrownTargets.Count < targets.Count)
-            {
-                directionSelectTimer += Time.unscaledDeltaTime;
-                yield return null;
-            }
-
-            if (directionSelector != null)
-            {
-                directionSelector.Hide();
-            }
-
-            isDirectionSelecting = false;
-            SetButtonsInteractable(false);
+            Debug.Log($"[TargetManager] 버튼 {idx} 무시 — active:{_targets[idx].activeSelf} ready:{t?.IsReady}");
+            return;
         }
 
-        isFirstRespawn = false;
-        isDispatchingTargets = true;
-
-        for (int i = 0; i < targets.Count; i++)
+        if (player == null)
         {
-            if (directionThrownTargets.Contains(i)) continue;
+            Debug.LogError("[TargetManager] player가 null! Inspector에서 연결하세요.");
+            return;
+        }
 
-            targets[i].SetActive(true);
-            targetButtons[i].gameObject.SetActive(true);
-            targets[i].GetComponent<Target>().Relocate();
+        Debug.Log($"[TargetManager] 버튼 {idx} → 공격 출발!");
+        _buttons[idx].interactable = false;   // 공격 중 중복 클릭 방지
+        player.StartAttackToTarget(_targets[idx].transform, _behaviours[idx]);
+    }
+
+    // ──────────────────────────────────────────
+    //  수집 처리 (PlayerMain이 도착 후 호출)
+    // ──────────────────────────────────────────
+    public void TargetEaten(GameObject eaten)
+    {
+        int idx = _targets.IndexOf(eaten);
+        eaten.SetActive(false);
+        if (idx != -1) _buttons[idx].gameObject.SetActive(false);
+
+        _aliveCount--;
+        Debug.Log($"[TargetManager] 검 수집 index={idx} 남은 검:{_aliveCount}");
+
+        if (_aliveCount <= 0)
+            StartCoroutine(RespawnAllAfterDelay(0.5f));
+    }
+
+    // ──────────────────────────────────────────
+    //  전체 리스폰
+    // ──────────────────────────────────────────
+    private IEnumerator RespawnAllAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        _aliveCount = _targets.Count;
+
+        for (int i = 0; i < _targets.Count; i++)
+        {
+            _buttons[i].interactable = false;
+            _buttons[i].gameObject.SetActive(true);
+            _targets[i].SetActive(true);
+            _targets[i].GetComponent<Target>().Relocate();
             yield return new WaitForSeconds(throwDelay);
         }
-
-        isDispatchingTargets = false;
-        TryCompleteGlobalThrow();
     }
 
-    private void HandleTargetLanded()
+    // ──────────────────────────────────────────
+    //  게이지 5칸 달성 → 랜덤 검 추가
+    // ──────────────────────────────────────────
+    public void AddRandomSword()
     {
-        if (isDirectionSelecting || isDispatchingTargets) return;
-
-        // 🌟 [수정] 개별 칼이 도착할 때마다 해당 버튼을 활성화 시도
-        // (전체 리스폰 중이 아닐 때 새로 추가된 칼이 도착하면 즉시 버튼 활성화)
-        if (!isGlobalThrowing)
+        if (addableSwords == null || addableSwords.Count == 0)
         {
-            UpdateIndividualButtonState();
+            Debug.LogWarning("[TargetManager] addableSwords가 비어 있습니다.");
+            return;
         }
 
-        TryCompleteGlobalThrow();
-    }
-
-    private void TryCompleteGlobalThrow()
-    {
-        if (!isGlobalThrowing || isDirectionSelecting || isDispatchingTargets) return;
-
-        foreach (GameObject targetObject in targets)
-        {
-            if (!targetObject.activeSelf || !targetObject.GetComponent<Target>().IsReady)
-            {
-                return;
-            }
-        }
-
-        isGlobalThrowing = false;
-
-        for (int i = 0; i < targetButtons.Count; i++)
-        {
-            targetButtons[i].gameObject.SetActive(true);
-            targetButtons[i].interactable = true;
-            SetButtonSelectedVisual(targetButtons[i], false);
-        }
-    }
-
-    private void SetButtonSelectedVisual(Button button, bool selected)
-    {
-        CanvasGroup canvasGroup = button.GetComponent<CanvasGroup>();
-        if (canvasGroup == null)
-        {
-            canvasGroup = button.gameObject.AddComponent<CanvasGroup>();
-        }
-
-        canvasGroup.alpha = selected ? 0.5f : 1f;
-    }
-
-    // 🌟 [추가] 각 칼의 IsReady 상태에 맞춰 버튼 상태를 동기화
-    private void UpdateIndividualButtonState()
-    {
-        for (int i = 0; i < targets.Count; i++)
-        {
-            if (targets[i].activeSelf)
-            {
-                targetButtons[i].interactable = targets[i].GetComponent<Target>().IsReady;
-            }
-        }
-    }
-
-    private void SetButtonsInteractable(bool state)
-    {
-        foreach (Button btn in targetButtons) btn.interactable = state;
+        TargetData data = addableSwords[Random.Range(0, addableSwords.Count)];
+        SpawnOne(data);
+        Debug.Log($"[TargetManager] 특수 검 추가 → {data.targetName} (총 슬롯: {_targets.Count})");
     }
 }
