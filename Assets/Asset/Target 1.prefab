@@ -105,12 +105,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 21068df4180f8164fb4ddfdb467c6a6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Target
-  myData: {fileID: 0}
   rangeX: 8
   rangeY: 4.5
   minDistance: 3
-  throwSpeed: 25
-  spinSpeed: 1500
 --- !u!58 &2034688104552687881
 CircleCollider2D:
   m_ObjectHideFlags: 0
