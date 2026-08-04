@@ -21,8 +21,21 @@ public class TargetManager : MonoBehaviour
     public PlayerMain player;
     [Range(0f, 1f)] public float throwDelay = 0.15f;
 
+    [Header("Direction Selection")]
+    [SerializeField] private DirectionSelector directionSelector;
+    [SerializeField] private float directionSelectDelay = 3f;
+
+    [Header("Target Limit")]
+    [SerializeField] private int maxTargetCount = 6;
+
+    public bool HasReachedTargetLimit => targets.Count >= maxTargetCount;
+
     private int activeTargetCount;
     private bool isGlobalThrowing = false; // 전체 리스폰 중에만 true
+    private bool isFirstRespawn = true;
+    private bool isDirectionSelecting;
+    private bool isDispatchingTargets;
+    private readonly HashSet<int> directionThrownTargets = new HashSet<int>();
 
     private void OnEnable()
     {
@@ -54,6 +67,7 @@ public class TargetManager : MonoBehaviour
 
     private void GiveNewTargetReward()
     {
+        if (targets.Count >= maxTargetCount) return;
         if (availableRewards == null || availableRewards.Count == 0) return;
 
         int randomIndex = Random.Range(0, availableRewards.Count);
@@ -63,6 +77,8 @@ public class TargetManager : MonoBehaviour
 
     private void AddNewTarget(TargetData newTargetData)
     {
+        if (targets.Count >= maxTargetCount) return;
+
         int newIndex = targets.Count;
 
         // 1. UI 생성
@@ -89,6 +105,21 @@ public class TargetManager : MonoBehaviour
 
     public void OnTargetButtonClicked(int index)
     {
+        if (index < 0 || index >= targets.Count) return;
+
+        if (isDirectionSelecting)
+        {
+            if (directionThrownTargets.Contains(index) || directionSelector == null) return;
+
+            directionThrownTargets.Add(index);
+            SetButtonSelectedVisual(targetButtons[index], true);
+            targetButtons[index].interactable = false;
+
+            targets[index].SetActive(true);
+            targets[index].GetComponent<Target>().Relocate(directionSelector.GetDirection());
+            return;
+        }
+
         // 🌟 [수정] 전체 페이즈가 아니더라도, '해당' 칼이 날아가는 중이면 클릭 무시
         Target targetScript = targets[index].GetComponent<Target>();
         if (isGlobalThrowing || !targets[index].activeSelf || !targetScript.IsReady) return;
@@ -100,7 +131,12 @@ public class TargetManager : MonoBehaviour
     {
         eatenTarget.SetActive(false);
         int index = targets.IndexOf(eatenTarget);
-        if (index != -1) targetButtons[index].gameObject.SetActive(false);
+        if (index != -1)
+        {
+            targetButtons[index].gameObject.SetActive(true);
+            targetButtons[index].interactable = false;
+            SetButtonSelectedVisual(targetButtons[index], true);
+        }
 
         activeTargetCount--;
 
@@ -119,41 +155,105 @@ public class TargetManager : MonoBehaviour
     {
         activeTargetCount = targets.Count;
         isGlobalThrowing = true; // 전체 리스폰 시작
+        directionThrownTargets.Clear();
 
         SetButtonsInteractable(false);
 
+        if (!isFirstRespawn)
+        {
+            for (int i = 0; i < targetButtons.Count; i++)
+            {
+                targetButtons[i].gameObject.SetActive(true);
+                targetButtons[i].interactable = true;
+                SetButtonSelectedVisual(targetButtons[i], false);
+            }
+
+            isDirectionSelecting = true;
+
+            if (directionSelector != null)
+            {
+                directionSelector.Show();
+            }
+
+            float directionSelectTimer = 0f;
+            while (directionSelectTimer < directionSelectDelay
+                && directionThrownTargets.Count < targets.Count)
+            {
+                directionSelectTimer += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (directionSelector != null)
+            {
+                directionSelector.Hide();
+            }
+
+            isDirectionSelecting = false;
+            SetButtonsInteractable(false);
+        }
+
+        isFirstRespawn = false;
+        isDispatchingTargets = true;
+
         for (int i = 0; i < targets.Count; i++)
         {
+            if (directionThrownTargets.Contains(i)) continue;
+
             targets[i].SetActive(true);
             targetButtons[i].gameObject.SetActive(true);
             targets[i].GetComponent<Target>().Relocate();
             yield return new WaitForSeconds(throwDelay);
         }
+
+        isDispatchingTargets = false;
+        TryCompleteGlobalThrow();
     }
 
     private void HandleTargetLanded()
     {
+        if (isDirectionSelecting || isDispatchingTargets) return;
+
         // 🌟 [수정] 개별 칼이 도착할 때마다 해당 버튼을 활성화 시도
         // (전체 리스폰 중이 아닐 때 새로 추가된 칼이 도착하면 즉시 버튼 활성화)
-        UpdateIndividualButtonState();
-
-        if (!isGlobalThrowing) return;
-
-        bool allLanded = true;
-        foreach (GameObject t in targets)
+        if (!isGlobalThrowing)
         {
-            if (t.activeSelf && !t.GetComponent<Target>().IsReady)
+            UpdateIndividualButtonState();
+        }
+
+        TryCompleteGlobalThrow();
+    }
+
+    private void TryCompleteGlobalThrow()
+    {
+        if (!isGlobalThrowing || isDirectionSelecting || isDispatchingTargets) return;
+
+        foreach (GameObject targetObject in targets)
+        {
+            if (!targetObject.activeSelf || !targetObject.GetComponent<Target>().IsReady)
             {
-                allLanded = false;
-                break;
+                return;
             }
         }
 
-        if (allLanded)
+        isGlobalThrowing = false;
+
+        for (int i = 0; i < targetButtons.Count; i++)
         {
-            isGlobalThrowing = false;
-            SetButtonsInteractable(true);
+            targetButtons[i].gameObject.SetActive(true);
+            targetButtons[i].interactable = true;
+            SetButtonSelectedVisual(targetButtons[i], false);
         }
+    }
+
+    private void SetButtonSelectedVisual(Button button, bool selected)
+    {
+        CanvasGroup canvasGroup = button.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = button.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        canvasGroup.alpha = selected ? 0.5f : 1f;
     }
 
     // 🌟 [추가] 각 칼의 IsReady 상태에 맞춰 버튼 상태를 동기화

@@ -14,11 +14,11 @@ public class PlayerAttribute : MonoBehaviour
     public float delayAfterAttack = 2.0f;
     public float pointGainInterval = 0.1f;
 
-    // --- 🌟 UI로 보낼 이벤트들 ---
+    // --- ?�� UI�?보낼 ?�벤?�들 ---
     public event Action<int, float> OnGaugeUpdated;
     public event Action<int, ElementType> OnSlotCompleted;
 
-    // [핵심 추가] 5칸이 모두 다 찼을 때 매니저에게 알릴 전역 이벤트!
+    // [?�심 추�?] 5칸이 모두 ??찼을 ??매니?�?�게 ?�릴 ?�역 ?�벤??
     public static event Action OnAllSlotsFilled;
 
     [Header("Current Status (Read Only)")]
@@ -28,6 +28,7 @@ public class PlayerAttribute : MonoBehaviour
 
     private PlayerMain mainScript;
     private PlayerTileDetector tileDetector;
+    private TargetManager targetManager;
     private bool isAttacking = false;
     private float lastAttackEndTime = 0f, nextPointGainTime = 0f;
 
@@ -35,6 +36,7 @@ public class PlayerAttribute : MonoBehaviour
     {
         mainScript = GetComponent<PlayerMain>();
         tileDetector = GetComponent<PlayerTileDetector>();
+        targetManager = FindObjectOfType<TargetManager>();
     }
 
     private void OnEnable()
@@ -61,16 +63,16 @@ public class PlayerAttribute : MonoBehaviour
 
         switch (tileDetector.currentTile)
         {
-            case TileType.Grass: grassPoints++; increasedElement = "풀(Grass)"; break;
-            case TileType.Water: waterPoints++; increasedElement = "물(Water)"; break;
-            case TileType.Lava: lavaPoints++; increasedElement = "용암(Lava)"; break;
+            case TileType.Grass: grassPoints++; increasedElement = "?�(Grass)"; break;
+            case TileType.Water: waterPoints++; increasedElement = "�?Water)"; break;
+            case TileType.Lava: lavaPoints++; increasedElement = "?�암(Lava)"; break;
             default: return;
         }
 
         int totalPoints = grassPoints + waterPoints + lavaPoints;
         float fillRatio = (float)totalPoints / maxTotalPoints;
 
-        Debug.Log($"[점수 획득] <color=green>{increasedElement}</color> +1 ➡ {currentSlotIndex + 1}번째 칸 총점: {totalPoints} / {maxTotalPoints} ({(fillRatio * 100):F1}%)");
+        Debug.Log($"[?�수 ?�득] <color=green>{increasedElement}</color> +1 ??{currentSlotIndex + 1}번째 �?총점: {totalPoints} / {maxTotalPoints} ({(fillRatio * 100):F1}%)");
 
         OnGaugeUpdated?.Invoke(currentSlotIndex, fillRatio);
 
@@ -94,8 +96,8 @@ public class PlayerAttribute : MonoBehaviour
         currentElement = candidates[UnityEngine.Random.Range(0, candidates.Count)];
 
         Debug.Log("=====================================");
-        Debug.Log($"🌟 {currentSlotIndex + 1}번째 칸 완성! (풀: {grassPoints}, 물: {waterPoints}, 용암: {lavaPoints})");
-        Debug.Log($"최종 결정된 속성: <color=yellow>{currentElement}</color>");
+        Debug.Log($"?�� {currentSlotIndex + 1}번째 �??�성! (?�: {grassPoints}, �? {waterPoints}, ?�암: {lavaPoints})");
+        Debug.Log($"최종 결정???�성: <color=yellow>{currentElement}</color>");
         Debug.Log("=====================================");
 
         OnSlotCompleted?.Invoke(currentSlotIndex, currentElement);
@@ -105,12 +107,17 @@ public class PlayerAttribute : MonoBehaviour
 
         if (currentSlotIndex >= 5)
         {
-            Debug.Log("<color=orange>5개의 속성 칸이 모두 가득 찼습니다! 새로운 타겟을 소환합니다!</color>");
+            Debug.Log("<color=orange>5개의 ?�성 칸이 모두 가??찼습?�다! ?�로???�겟을 ?�환?�니??</color>");
 
-            // 🌟 [추가] 5칸이 다 찼으니 매니저에게 타겟을 달라고 신호를 쏩니다.
+            // ?�� [추�?] 5칸이 ??찼으??매니?�?�게 ?�겟을 ?�라�??�호�??�니??
+            if (targetManager != null && targetManager.HasReachedTargetLimit)
+            {
+                Debug.Log("Maximum target count reached. Attribute slots remain filled.");
+                return;
+            }
             OnAllSlotsFilled?.Invoke();
 
-            // 5칸이 찬 후 다시 처음부터 모으게 하려면 아래 주석을 푸세요.
+            // 5칸이 �????�시 처음부??모으�??�려�??�래 주석???�세??
             currentSlotIndex = 0; 
         }
     }

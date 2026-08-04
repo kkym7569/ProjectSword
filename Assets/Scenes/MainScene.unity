@@ -2416,8 +2416,7 @@ MonoBehaviour:
   - {fileID: 471207099}
   - {fileID: 1269326039}
   - {fileID: 699550806}
-  formationRadius: 2
-  orbitRadius: 1.5
+  spiritRadius: 2
   orbitSpeed: 60
 --- !u!1 &1703905650
 GameObject:
