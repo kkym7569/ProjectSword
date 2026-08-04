@@ -5,13 +5,29 @@ public class ChaserEnemy : EnemyBase
     [Header("2D Chaser Settings")]
     public float moveSpeed = 3f;
 
+    [Header("Spirit Targeting")]
+    [SerializeField] private float targetRefreshInterval = 0.25f;
+
+    private Transform targetSpirit;
+    private float nextTargetRefreshTime;
+
+    protected override void Start()
+    {
+        base.Start();
+        FindNearestSpirit();
+    }
+
     private void Update()
     {
-        // 타겟(플레이어)이 없으면 이동하지 않음
-        if (targetPlayer == null) return;
+        if (targetSpirit == null || Time.time >= nextTargetRefreshTime)
+        {
+            FindNearestSpirit();
+        }
 
-        // 1. 플레이어를 향한 방향 계산 (2D이므로 Z축은 무시되고 X, Y만 계산됨)
-        Vector2 direction = (targetPlayer.position - transform.position).normalized;
+        Transform currentTarget = targetSpirit != null ? targetSpirit : targetPlayer;
+        if (currentTarget == null) return;
+
+        Vector2 direction = (currentTarget.position - transform.position).normalized;
 
         // 2. 회전 코드는 전부 삭제! 오직 플레이어를 향해 직진
         transform.position += (Vector3)direction * moveSpeed * Time.deltaTime;
@@ -31,6 +47,29 @@ public class ChaserEnemy : EnemyBase
             transform.localScale = new Vector3(-1, 1, 1);
 
             // 나중에 애니메이터를 쓴다면: animator.SetFloat("DirX", -1f);
+        }
+    }
+
+    private void FindNearestSpirit()
+    {
+        nextTargetRefreshTime = Time.time + targetRefreshInterval;
+        Spirit[] spirits = FindObjectsByType<Spirit>(FindObjectsSortMode.None);
+
+        targetSpirit = null;
+        float nearestDistanceSqr = float.MaxValue;
+
+        foreach (Spirit spirit in spirits)
+        {
+            if (spirit == null || !spirit.gameObject.activeInHierarchy) continue;
+
+            float distanceSqr = ((Vector2)spirit.transform.position
+                - (Vector2)transform.position).sqrMagnitude;
+
+            if (distanceSqr < nearestDistanceSqr)
+            {
+                nearestDistanceSqr = distanceSqr;
+                targetSpirit = spirit.transform;
+            }
         }
     }
 }

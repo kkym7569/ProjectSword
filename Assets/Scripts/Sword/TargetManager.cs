@@ -9,7 +9,7 @@ public class TargetManager : MonoBehaviour
     public List<GameObject> targets = new List<GameObject>();
     public List<Button> targetButtons = new List<Button>();
 
-    [Header("?™ì  ?ì„± ?„ë¦¬??)]
+    [Header("?™ì  ?ì„± ?„ë¦¬??")]
     public GameObject targetPrefab;
     public Button buttonPrefab;
     public Transform buttonParent;
