@@ -4,6 +4,12 @@ using UnityEngine;
 
 public class Target : MonoBehaviour
 {
+    public enum TargetState
+    {
+        Held,
+        Flying,
+        Landed
+    }
     [Header("Target Data (Scriptable Object)")]
     public TargetData myData; // ?„ì¬ ê²€??ê°€ì§€ê³??ˆëŠ” ?°ì´??
 
@@ -17,7 +23,8 @@ public class Target : MonoBehaviour
     public float directionThrowDistance = 6f;  // ? ì•„ê°????½ì´ì²˜ëŸ¼ ?„ëŠ” ?ë„
 
     // [?íƒœ] ê²€???…ì— ê½‚í????€??ê³µê²©) ê°€?¥í•œ ?íƒœ?¸ì? ?•ì¸?˜ëŠ” ë³€??
-    public bool IsReady { get; private set; } = false;
+    public TargetState State { get; private set; } = TargetState.Held;
+    public bool IsReady => State == TargetState.Landed;
 
     // [?´ë²¤?? ?…ì— ê½‚í˜”????ë§¤ë‹ˆ?€?ê²Œ "???„ì°©?ˆì–´!"?¼ê³  ë³´ë‚¼ ? í˜¸
     public event Action OnLanded;
@@ -59,7 +66,7 @@ public class Target : MonoBehaviour
         if (!TryFindPlayer()) return;
 
         // ?„ì¹˜ ?¬ë°°ì¹?ë¹„í–‰)ë¥??œì‘?˜ë?ë¡?'ì¤€ë¹????? ?íƒœë¡?ë³€ê²?
-        IsReady = false;
+        State = TargetState.Flying;
 
         Vector2 targetPos; // ?„ì°©?´ì•¼ ??ëª©ì ì§€
         int safetyBreak = 0;
@@ -90,12 +97,19 @@ public class Target : MonoBehaviour
     {
         if (!TryFindPlayer() || direction.sqrMagnitude <= 0f) return;
 
-        IsReady = false;
+        State = TargetState.Flying;
         Vector2 destination = (Vector2)playerTransform.position
             + direction.normalized * directionThrowDistance;
 
         StartCoroutine(ThrowRoutine(destination));
     }
+    public void SetHeld()
+    {
+        StopAllCoroutines();
+        State = TargetState.Held;
+        transform.rotation = Quaternion.identity;
+    }
+
     private bool TryFindPlayer()
     {
         if (playerTransform != null) return true;
@@ -115,10 +129,10 @@ public class Target : MonoBehaviour
         while (Vector2.Distance(transform.position, destination) > 0.01f)
         {
             // MoveTowardsë¥??¬ìš©???¼ì •???ë„ë¡?ëª©ì ì§€ë¥??¥í•´ ? ì•„ê°?
-            transform.position = Vector2.MoveTowards(transform.position, destination, throwSpeed * Time.deltaTime);
+            transform.position = Vector2.MoveTowards(transform.position, destination, throwSpeed * Time.unscaledDeltaTime);
 
             // ? ì•„ê°€???™ì•ˆ ??™?ìœ¼ë¡??Œì „?˜ëŠ” ?°ì¶œ
-            transform.Rotate(0, 0, spinSpeed * Time.deltaTime);
+            transform.Rotate(0, 0, spinSpeed * Time.unscaledDeltaTime);
 
             yield return null;
         }
@@ -130,7 +144,7 @@ public class Target : MonoBehaviour
         transform.rotation = Quaternion.identity;
 
         // ëª©ì ì§€??ë¬´ì‚¬???ˆì°©?ˆìœ¼ë¯€ë¡??€??ì¤€ë¹??„ë£Œ ?íƒœë¡?ë³€ê²?
-        IsReady = true;
+        State = TargetState.Landed;
 
         // ë§¤ë‹ˆ?€?ê²Œ "??ë¬´ì‚¬??ê½‚í˜”??" ?˜ê³  ? í˜¸(?´ë²¤?? ë°œì†¡
         OnLanded?.Invoke();

@@ -15,19 +15,20 @@ public class PlayerCombat : MonoBehaviour
     public float slashFadeTime = 0.3f;
 
     [Header("Special Kill Setting")]
-    public int specialKillThreshold = 3; // 3명 이상 벨 때 연출 발동
+    public int specialKillThreshold = 3; // 3�??�상 �????�출 발동
 
     private PlayerMain mainScript;
     private float originalSlashWidth;
     private Coroutine fadeCoroutine;
 
     private bool isAttacking = false;
+    private bool hasSwordForCurrentMove;
     private Vector2 startPos;
     private Vector2 currentPos;
 
-    // 중복 타격 방지용 명부
+    // 중복 ?��?방�???명�?
     private HashSet<Collider2D> hitEnemiesThisSlash = new HashSet<Collider2D>();
-    // 연출용 피해자 명단
+    // ?�출???�해??명단
     private List<EnemyBase> victimsThisSlash = new List<EnemyBase>();
 
     private void Awake()
@@ -60,14 +61,26 @@ public class PlayerCombat : MonoBehaviour
 
     private void HandleAttackStart(Vector2 attackStart)
     {
-        isAttacking = true;
+        hasSwordForCurrentMove = mainScript.manager != null
+            && mainScript.manager.HasHeldTarget;
+        isAttacking = hasSwordForCurrentMove;
         startPos = attackStart;
         currentPos = attackStart;
 
         hitEnemiesThisSlash.Clear();
         victimsThisSlash.Clear();
 
-        if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
+        if (fadeCoroutine != null)
+        {
+            StopCoroutine(fadeCoroutine);
+            fadeCoroutine = null;
+        }
+
+        if (!hasSwordForCurrentMove)
+        {
+            if (slashEffect != null) slashEffect.enabled = false;
+            return;
+        }
 
         if (slashEffect != null)
         {
@@ -76,7 +89,7 @@ public class PlayerCombat : MonoBehaviour
             slashEffect.SetPosition(0, startPos);
             slashEffect.SetPosition(1, startPos);
 
-            // 🌟 검기 이펙트 초기 색상 복구 (연출 후를 대비)
+            // ?�� 검�??�펙??초기 ?�상 복구 (?�출 ?��? ?��?
             slashEffect.startColor = Color.white;
             slashEffect.endColor = Color.white;
         }
@@ -84,6 +97,8 @@ public class PlayerCombat : MonoBehaviour
 
     private void HandleAttackUpdate(Vector2 attackStart, Vector2 attackCurrent)
     {
+        if (!hasSwordForCurrentMove) return;
+
         currentPos = attackCurrent;
 
         if (slashEffect != null)
@@ -99,12 +114,20 @@ public class PlayerCombat : MonoBehaviour
     {
         isAttacking = false;
 
-        // 🌟 [핵심] 3명 이상 베었을 때 특수 연출 호출 (플레이어 객체 포함)
+        if (!hasSwordForCurrentMove)
+        {
+            hasSwordForCurrentMove = false;
+            return;
+        }
+
+        hasSwordForCurrentMove = false;
+
+        // ?�� [?�심] 3�??�상 베었?????�수 ?�출 ?�출 (?�레?�어 객체 ?�함)
         if (victimsThisSlash.Count >= specialKillThreshold)
         {
             if (HitEffectManager.Instance != null)
             {
-                // 플레이어 본인(gameObject)과 검기(slashEffect)를 함께 전달할 수 있도록 설계
+                // ?�레?�어 본인(gameObject)�?검�?slashEffect)�??�께 ?�달?????�도�??�계
                 HitEffectManager.Instance.PlaySpecialKillEffect(victimsThisSlash, gameObject, slashEffect);
             }
         }
